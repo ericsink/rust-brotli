@@ -373,6 +373,8 @@ pub fn compress_multi<InputType:Read,
   }
 }
 
+use std::time::{Duration, SystemTime};
+
 pub fn compress<InputType, OutputType>(r: &mut InputType,
                                        w: &mut OutputType,
                                        buffer_size: usize,
@@ -381,6 +383,7 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                        num_threads: usize) -> Result<usize, io::Error>
     where InputType: Read,
           OutputType: Write {
+  let now = SystemTime::now();
     if num_threads > 1 && custom_dictionary.len() ==0 && !params.log_meta_block {
       if has_stdlib() {
         return compress_multi(r, w, params, num_threads, Some(&mut new_work_pool(num_threads - 1)));
@@ -408,6 +411,7 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
     if params.log_meta_block {
         println_stderr!("window {} 0 0 0", params.lgwin);
     }
+    let result =
     brotli::BrotliCompressCustomIoCustomDict(&mut IoReaderWrapper::<InputType>(r),
                                    &mut IoWriterWrapper::<OutputType>(w),
                                    &mut input_buffer.slice_mut(),
@@ -416,7 +420,17 @@ pub fn compress<InputType, OutputType>(r: &mut InputType,
                                    new_brotli_heap_alloc(),
                                                    &mut log,
                                                    custom_dictionary,
-                                   Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"))
+                                   Error::new(ErrorKind::UnexpectedEof, "Unexpected EOF"));
+   match now.elapsed() {
+       Ok(elapsed) => {
+           println!("elapsed: {}", elapsed.as_secs());
+       }
+       Err(e) => {
+           println!("Error: {:?}", e);
+       }
+   }
+   result
+
 }
 
 // This decompressor is defined unconditionally on whether std is defined
